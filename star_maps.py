@@ -2,75 +2,57 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from datetime import datetime
 from matplotlib.collections import LineCollection
 from matplotlib.patches import RegularPolygon
-from star_works import collect_celestial_data
+from matplotlib.animation import FuncAnimation
+from star_works import *
 
 
-def create_hexstar_chart(location, when, chart_size, max_star_size):
+def update(frame_num, location, start_time, max_star_size):
     """
-    Arguments: location, time, chart size, max star size
-    Returns: Nonetype, plots a hexagonal star chart
+    Arguments: frame_num
+    Returns: data to feed through animation
     """
-    # get stars info
-    stars, edges_star1, edges_star2 = collect_celestial_data(location, when)
+    # Calculate time for current frame
+    dt = start_time + timedelta(hours=frame_num)
+
+    # Collect celestial data for current frame
+    stars, edges_star1, edges_star2 = collect_celestial_data(location, dt)
 
     # define the number of stars & brightness of stars to include
     limiting_magnitude = 13
+
+    # Filter bright stars and calculate marker sizes
     bright_stars = stars.magnitude <= limiting_magnitude
     magnitude = stars["magnitude"][bright_stars]
     marker_size = max_star_size * 10 ** (magnitude / -2.5)
 
-    # calculate the constellation lines
-    xy1 = stars[["x", "y"]].loc[edges_star1].values
-    xy2 = stars[["x", "y"]].loc[edges_star2].values
-    lines_xy = np.rollaxis(np.array([xy1, xy2]), 1)
-
-    # build the figure
-    fig, ax = plt.subplots(figsize=(chart_size, chart_size))
-
-    # draw the stars & constellation
-    stars_scatter = ax.scatter(
-        stars["x"][bright_stars],
-        stars["y"][bright_stars],
-        s=marker_size,
-        color="yellow",
-        marker="*",
-        linewidths=0,
-        zorder=2,
-    )
-    lines_scatter = ax.add_collection(
-        LineCollection(lines_xy, colors="skyblue", linewidths=0.25)
+    # Update data for scatter plots and lines
+    stars_scatter.set_offsets(stars[["x", "y"]][bright_stars].values)
+    stars_scatter.set_sizes(marker_size)
+    lines_scatter.set_segments(
+        np.rollaxis(
+            np.array(
+                [
+                    stars[["x", "y"]].loc[edges_star1].values,
+                    stars[["x", "y"]].loc[edges_star2].values,
+                ]
+            ),
+            1,
+        )
     )
 
-    # add hex patch
-    hexa = RegularPolygon(
-        (0, 0),
-        numVertices=6,
-        radius=4.0 / 4.0,
-        orientation=np.radians(0),
-        facecolor="darkcyan",
-    )
-    ax.add_patch(hexa)
-    stars_scatter.set_clip_path(hexa)
-    lines_scatter.set_clip_path(hexa)
-
-    # other settings
-    ax.set_aspect("equal")
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    plt.axis("off")
-    when_datetime = datetime.strptime(when, "%Y-%m-%d %H:%M")
+    # Update title with current time
     plt.title(
-        f"Observation Location: {location}, Time: {when_datetime.strftime('%Y-%m-%d %H:%M')}",
+        f"Observation Location: {location}, Time: {dt}",
         loc="right",
         color="darkorange",
         fontsize=10,
     )
 
-    plt.show()
-    plt.close()
+    return stars_scatter, lines_scatter, title_text
 
 
 def get_cl_args():
@@ -87,7 +69,7 @@ def get_cl_args():
         dest="LOC",
         required=True,
         type=str,
-        help="Location for map in the format 'City, State' ",
+        help="Location for map in the format 'City, State/Country'",
     )
     parser.add_argument(
         "-t",
@@ -105,23 +87,66 @@ def get_cl_args():
         type=int,
         help="Maximum number of stars to display",
     )
+    parser.add_argument(
+        "-f",
+        "--file_name",
+        dest="FNAME",
+        type=str,
+        default=None,
+        help="Name of the file to be created. Defaults to None.",
+    )
 
     return parser.parse_args()
 
 
-def main():
-    """Business logic"""
+args = get_cl_args()
+loc = args.LOC
+strttime = args.TIME
+maxstars = args.MS
+fname = args.FNAME
 
-    args = get_cl_args()
-    loc = args.LOC
-    strttime = args.TIME
-    maxstars = args.MS
+print(f"You've requested a star map for {loc} starting from {strttime}")
+# Convert time to datetime object
+when_datetime = datetime.strptime(strttime, "%Y-%m-%d %H:%M")
 
-    print(f"You've requested a star map for {loc} starting from {strttime}")
+# Create figure and axes
+fig, ax = plt.subplots(figsize=(13, 13))
 
-    # creating star chart
-    create_hexstar_chart(loc, strttime, 13, maxstars)
+# Initial plot elements
+stars_scatter = ax.scatter(
+    [], [], s=[], color="yellow", marker="*", linewidths=0, zorder=2
+)
+lines_scatter = ax.add_collection(LineCollection([], colors="skyblue", linewidths=0.25))
+title_text = plt.title(
+    f"Observation Location: {loc}, Time: {when_datetime}",
+    loc="right",
+    color="darkorange",
+    fontsize=10,
+)
 
+# Add hex patch
+hexa = RegularPolygon(
+    (0, 0),
+    numVertices=6,
+    radius=4.0 / 4.0,
+    orientation=np.radians(0),
+    facecolor="black",
+)
+ax.add_patch(hexa)
+stars_scatter.set_clip_path(hexa)
+lines_scatter.set_clip_path(hexa)
 
-if __name__ == "__main__":
-    main()
+# Other settings
+ax.set_aspect("equal")
+ax.set_xlim(-1, 1)
+ax.set_ylim(-1, 1)
+plt.axis("off")
+
+ani = animation.FuncAnimation(
+    fig, update, frames=24, fargs=(loc, when_datetime, maxstars), interval=679
+)
+
+if fname:
+    ani.save(filename=f"{fname}.gif", writer="pillow")
+else:
+    plt.show()
