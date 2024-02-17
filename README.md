@@ -7,5 +7,5 @@ This project is my attempt at creating star maps using Python and [Summer He's t
 ### What are my own goals?
 
 1. Re-do this tutorial so it's not in a Jupyter notebook. :white_check_mark:
-2. Add user input functionality for location and time. 	:white_check_mark:
+2. Add user input functionality for location and time. :white_check_mark:
 3. Create a 24 hr animation of a star map based on the given location and timezone. :white_check_mark:
