@@ -1,8 +1,8 @@
 """
-Purpose: Module for the following fxns by Summer He, modified based on my errors: load_data, collect_celestial_data 
+Purpose: Module for the following fxns by Summer He, modified based on my errors: load_data, collect_celestial_data
 """
 # import libaries
-from datetime import datetime
+from datetime import datetime, timedelta
 from geopy import Photon
 from timezonefinder import TimezoneFinder
 from pytz import timezone, utc
@@ -38,6 +38,19 @@ def _load_data():
     return eph, stars, constellations
 
 
+def _get_lat_long(loc):
+    """
+    Arguments: location
+    Returns: latitude and longitude coordinates of the location
+    """
+    # get latitude coordinates
+    locator = Photon(user_agent="myGeocoder", timeout=10)
+    location = locator.geocode(loc)
+    lat, long = location.latitude, location.longitude
+
+    return lat, long
+
+
 def collect_celestial_data(location, when):
     """
     Arguments: user provided location and time data
@@ -46,13 +59,10 @@ def collect_celestial_data(location, when):
     # loading required datasets
     eph, stars, constellations = _load_data()
 
-    # get latitude coordinates
-    locator = Photon(user_agent="myGeocoder", timeout=10)
-    location = locator.geocode(location)
-    lat, long = location.latitude, location.longitude
+    lat, long = _get_lat_long(location)
 
     # convert date string into datetime object
-    dt = datetime.strptime(when, "%Y-%m-%d %H:%M")
+    dt = when
 
     # define datetime & convert to UTC based on location coordinates
     tf = TimezoneFinder()
